@@ -2,9 +2,6 @@
  *  STIPENDIO NETTO ITALIA 2026
  *  RAL − INPS − IRPEF netta − addizionali + cuneo esente = NETTO
  *
- *  Modulo di sole funzioni pure: nessuna dipendenza da React, nessun I/O,
- *  nessuno stato. Le aliquote e le soglie vivono in `src/constants/taxConsts.ts`,
- *  ognuna con la propria fonte normativa inline.
  *
  *  Caso modellato: impiegato a tempo indeterminato, full-year, residente a
  *  Milano, senza familiari a carico né agevolazioni, con reddito da solo
@@ -45,13 +42,18 @@ export type RisultatoNetto = {
   addComunale: number;
   nettoAnnuo: number;
   nettoMensile: number;
+  mensileOrdinario: number;
+  mensilitaAggiuntive: number;
 };
 
 /**
  * Applica un'imposta progressiva per scaglioni: ogni aliquota colpisce solo la
  * quota di reddito che ricade nel proprio intervallo, non l'intero importo.
  */
-function imponiPerScaglioni(imponibile: number, scaglioni: Scaglione[]): number {
+function imponiPerScaglioni(
+  imponibile: number,
+  scaglioni: Scaglione[],
+): number {
   return scaglioni.reduce((imposta, { da, a, aliquota }) => {
     const quota = Math.min(imponibile, a) - da;
     return quota > 0 ? imposta + quota * aliquota : imposta;
@@ -69,6 +71,21 @@ export function calcolaIrpefLorda(imponibileFiscale: number): number {
 }
 
 /**
+ * Aliquota marginale IRPEF: quella dello scaglione in cui cade l'ultimo euro
+ * di imponibile. Serve per tassare le mensilità aggiuntive (13ª/14ª), che in
+ * sede di conguaglio non godono di detrazioni e vanno colpite al marginale,
+ * non all'aliquota media dell'anno.
+ * Quindi, le mensilità aggiuntive vengono tassate sul secondo scaglione "toccato" dall'imponibile annuo.
+ */
+export function aliquotaMarginale(imponibileFiscale: number): number {
+  // Troviamo lo scaglione in cui ricade l'imponibile, e restituiamo la sua aliquota.
+  const scaglione = SCAGLIONI_IRPEF.find(
+    ({ da, a }) => imponibileFiscale > da && imponibileFiscale <= a,
+  );
+  return scaglione?.aliquota ?? 0;
+}
+
+/**
  * Detrazione per redditi da lavoro dipendente (art. 13 TUIR): importo fisso
  * fino a 15.000€, poi decrescente a tratti fino ad azzerarsi a 50.000€.
  * Nella fascia 25.000–35.000€ si somma un bonus fisso.
@@ -83,9 +100,11 @@ export function calcolaDetrazioneLavoro(imponibileFiscale: number): number {
   } else if (r <= d.SOGLIA_INTERMEDIA) {
     detrazione =
       d.BASE_DECRESCENTE +
-      (d.QUOTA_AGGIUNTIVA * (d.SOGLIA_INTERMEDIA - r)) / d.AMPIEZZA_FASCIA_INTERMEDIA;
+      (d.QUOTA_AGGIUNTIVA * (d.SOGLIA_INTERMEDIA - r)) /
+        d.AMPIEZZA_FASCIA_INTERMEDIA;
   } else if (r <= d.SOGLIA_ALTA) {
-    detrazione = (d.BASE_DECRESCENTE * (d.SOGLIA_ALTA - r)) / d.AMPIEZZA_FASCIA_ALTA;
+    detrazione =
+      (d.BASE_DECRESCENTE * (d.SOGLIA_ALTA - r)) / d.AMPIEZZA_FASCIA_ALTA;
   } else {
     detrazione = 0;
   }
@@ -114,9 +133,11 @@ export function calcolaCuneo(imponibileFiscale: number): Cuneo {
   }
 
   if (r <= CUNEO.SOGLIA_AZZERAMENTO) {
-    const residuo = CUNEO.SOGLIA_AZZERAMENTO - r;
-    const ampiezza = CUNEO.SOGLIA_AZZERAMENTO - CUNEO.SOGLIA_INIZIO_DECALAGE;
-    return { tipo: "detrazione", importo: (CUNEO.DETRAZIONE_PIENA * residuo) / ampiezza };
+    // Applichiamo la formula
+    // detrazione = DETRAZIONE_PIENA * (SOGLIA_AZZERAMENTO - imponibile) / 8000
+    const importo =
+      (CUNEO.DETRAZIONE_PIENA * (CUNEO.SOGLIA_AZZERAMENTO - r)) / 8000;
+    return { tipo: "detrazione", importo };
   }
 
   return { tipo: "detrazione", importo: 0 };
@@ -124,7 +145,10 @@ export function calcolaCuneo(imponibileFiscale: number): Cuneo {
 
 /** Addizionale regionale Lombardia, progressiva per scaglioni sull'imponibile fiscale. */
 export function calcolaAddizionaleRegionale(imponibileFiscale: number): number {
-  return imponiPerScaglioni(imponibileFiscale, SCAGLIONI_ADD_REGIONALE_LOMBARDIA);
+  return imponiPerScaglioni(
+    imponibileFiscale,
+    SCAGLIONI_ADD_REGIONALE_LOMBARDIA,
+  );
 }
 
 /**
@@ -145,12 +169,19 @@ export function calcolaAddizionaleComunale(imponibileFiscale: number): number {
  * @param mensilita Numero di mensilità contrattuali su cui spalmare il netto.
  * @throws Se la RAL non è un numero finito ≥ 0 o le mensilità non sono > 0.
  */
-export function calcolaNetto(ral: number, mensilita: number = MENSILITA_DEFAULT): RisultatoNetto {
+export function calcolaNetto(
+  ral: number,
+  mensilita: number = MENSILITA_DEFAULT,
+): RisultatoNetto {
   if (!Number.isFinite(ral) || ral < 0) {
-    throw new RangeError("La RAL deve essere un numero finito maggiore o uguale a zero.");
+    throw new RangeError(
+      "La RAL deve essere un numero finito maggiore o uguale a zero.",
+    );
   }
   if (!Number.isFinite(mensilita) || mensilita <= 0) {
-    throw new RangeError("Le mensilità devono essere un numero finito maggiore di zero.");
+    throw new RangeError(
+      "Le mensilità devono essere un numero finito maggiore di zero.",
+    );
   }
 
   const contributiInps = calcolaContributiInps(ral);
@@ -166,13 +197,33 @@ export function calcolaNetto(ral: number, mensilita: number = MENSILITA_DEFAULT)
   const cuneoSommaEsente = cuneo.tipo === "sommaEsente" ? cuneo.importo : 0;
 
   // Le detrazioni non generano credito d'imposta: l'IRPEF si ferma a zero.
-  const irpefNetta = Math.max(0, irpefLorda - detrazioneLavoro - cuneoDetrazione);
+  const irpefNetta = Math.max(
+    0,
+    irpefLorda - detrazioneLavoro - cuneoDetrazione,
+  );
 
   const addRegionale = calcolaAddizionaleRegionale(imponibileFiscale);
   const addComunale = calcolaAddizionaleComunale(imponibileFiscale);
 
   const nettoAnnuo =
-    ral - contributiInps - irpefNetta - addRegionale - addComunale + cuneoSommaEsente;
+    ral -
+    contributiInps -
+    irpefNetta -
+    addRegionale -
+    addComunale +
+    cuneoSommaEsente;
+
+  // La mensilità aggiuntiva (13ª/14ª) è tassata al marginale, senza detrazioni:
+  // lordo mensile − INPS − IRPEF al marginale sull'imponibile di quella mensilità.
+  const lordoMensile = ral / mensilita;
+  const inpsMensile = lordoMensile * ALIQUOTA_INPS_LAVORATORE;
+  const imponibileMensile = lordoMensile - inpsMensile;
+  const nettoMensililitaAggiuntiva =
+    imponibileMensile -
+    imponibileMensile * aliquotaMarginale(imponibileFiscale);
+
+  const nettoMensileOrdinario =
+    (nettoAnnuo - nettoMensililitaAggiuntiva * (mensilita - 12)) / 12;
 
   return {
     ral,
@@ -186,6 +237,8 @@ export function calcolaNetto(ral: number, mensilita: number = MENSILITA_DEFAULT)
     addComunale,
     nettoAnnuo,
     nettoMensile: nettoAnnuo / mensilita,
+    mensilitaAggiuntive: nettoMensililitaAggiuntiva,
+    mensileOrdinario: nettoMensileOrdinario,
   };
 }
 
@@ -193,6 +246,7 @@ export function calcolaNetto(ral: number, mensilita: number = MENSILITA_DEFAULT)
 export const ASSUNZIONI: readonly string[] = [
   "Impiegato a tempo indeterminato, in forza per l'intero anno.",
   "Residenza fiscale a Milano (Lombardia).",
+  "Non arrotondato all'euro.",
   "Nessun familiare a carico e nessuna agevolazione o detrazione ulteriore.",
   "Reddito da solo lavoro dipendente, nessun altro reddito.",
   "Ignorata l'aliquota INPS aggiuntiva dell'1% oltre la prima fascia di retribuzione (~52.190€).",
@@ -213,7 +267,8 @@ export type IdFonte =
   | "detrazioneLavoro"
   | "cuneo"
   | "addRegionale"
-  | "addComunale";
+  | "addComunale"
+  | "mensilitaAggiuntive";
 
 /** Una singola norma o pagina ufficiale citata, con il proprio link. */
 export type Riferimento = {
@@ -228,7 +283,7 @@ export type Riferimento = {
    * differito: fino a quella data il riferimento resta quello applicabile, e
    * citarlo senza dirlo darebbe una fonte formalmente superata.
    */
-  abrogatoDa?: { riferimento: Riferimento; dal: string };
+  abrogatoDa?: { riferimento: Riferimento; dal: Date };
 };
 
 /**
@@ -243,7 +298,10 @@ const NUOVO_TUIR: Riferimento = {
   editore: "Normattiva",
 };
 
-const ABROGAZIONE_TUIR = { riferimento: NUOVO_TUIR, dal: "1° gennaio 2027" };
+const ABROGAZIONE_TUIR: { riferimento: Riferimento; dal: Date } = {
+  riferimento: NUOVO_TUIR,
+  dal: new Date("2027-01-01"),
+};
 
 export type Fonte = {
   id: IdFonte;
@@ -305,9 +363,15 @@ const RIFERIMENTI = {
   },
   milanoAddizionale: {
     // Registro ufficiale del MEF: riporta aliquota e soglia deliberate dal Comune.
-    etichetta: "Addizionale comunale IRPEF di Milano, aliquota e soglia deliberate",
+    etichetta:
+      "Addizionale comunale IRPEF di Milano, aliquota e soglia deliberate",
     url: "https://www1.finanze.gov.it/finanze2/dipartimentopolitichefiscali/fiscalitalocale/nuova_addcomirpef/risultato.htm?anno=9999&lista=1&pagina=lombardia.htm&cm=&pr=MI&cc=F205&r=1",
     editore: "Dipartimento delle Finanze (MEF)",
+  },
+  mensilitaAggiuntive: {
+    etichetta: "art. 23, comma 2, lett. b), DPR 29 settembre 1973, n. 600",
+    url: "https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:1973;600~art23!vig=",
+    editore: "Normattiva",
   },
 } as const satisfies Record<string, Riferimento>;
 
@@ -356,6 +420,13 @@ export const FONTI: readonly Fonte[] = [
     dettaglio:
       "Aliquota unica sull'intero imponibile, dovuta solo oltre la soglia di esenzione di 23.000€.",
     riferimenti: [RIFERIMENTI.milanoAddizionale],
+  },
+  {
+    id: "mensilitaAggiuntive",
+    voce: "Calcolo mese ordinario e mensilità aggiuntive",
+    dettaglio:
+      "Le mensilità aggiuntive sono tassate con le aliquote IRPEF ragguagliate a mese, cioè all'aliquota marginale dello scaglione in cui cade il reddito, e senza le detrazioni da lavoro dipendente — che restano assorbite dai mesi ordinari. Per questo il netto della mensilità aggiuntiva è più basso di quello ordinario.",
+    riferimenti: [RIFERIMENTI.mensilitaAggiuntive],
   },
 ];
 

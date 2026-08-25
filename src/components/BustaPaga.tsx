@@ -9,7 +9,12 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { formattaEuro } from "@/lib/format";
-import { FONTI, numeroFonte, type IdFonte, type RisultatoNetto } from "@/lib/taxEngine";
+import {
+  FONTI,
+  numeroFonte,
+  type IdFonte,
+  type RisultatoNetto,
+} from "@/lib/taxEngine";
 import { cn } from "@/lib/utils";
 
 /**
@@ -35,7 +40,13 @@ type Riga = {
  * la riga corrispondente. È un <button> e non un'ancora perché il bersaglio sta
  * dentro un accordion chiuso, che va prima aperto.
  */
-function RichiamoFonte({ id, onApri }: { id: IdFonte; onApri: (id: IdFonte) => void }) {
+function RichiamoFonte({
+  id,
+  onApri,
+}: {
+  id: IdFonte;
+  onApri: (id: IdFonte) => void;
+}) {
   const numero = numeroFonte(id);
   const fonte = FONTI.find((f) => f.id === id);
 
@@ -62,18 +73,33 @@ function segno(ruolo: Ruolo, importo: number): string {
   return "";
 }
 
-function RigaVoce({ riga, onApriFonte }: { riga: Riga; onApriFonte: (id: IdFonte) => void }) {
+function RigaVoce({
+  riga,
+  onApriFonte,
+}: {
+  riga: Riga;
+  onApriFonte: (id: IdFonte) => void;
+}) {
   const eSubtotale = riga.ruolo === "subtotale";
 
   return (
     <TableRow className={cn(eSubtotale && "bg-muted/40")}>
-      <TableCell className={cn("py-2.5", eSubtotale ? "font-medium" : "text-muted-foreground")}>
+      <TableCell
+        className={cn(
+          "py-2.5",
+          eSubtotale ? "font-medium" : "text-muted-foreground",
+        )}
+      >
         {eSubtotale ? "= " : ""}
         {riga.etichetta}
         {riga.nota ? (
-          <span className="text-muted-foreground/70 ml-2 text-xs">{riga.nota}</span>
+          <span className="text-muted-foreground/70 ml-2 text-xs">
+            {riga.nota}
+          </span>
         ) : null}
-        {riga.fonte ? <RichiamoFonte id={riga.fonte} onApri={onApriFonte} /> : null}
+        {riga.fonte ? (
+          <RichiamoFonte id={riga.fonte} onApri={onApriFonte} />
+        ) : null}
       </TableCell>
       <TableCell
         className={cn(
@@ -103,17 +129,28 @@ function Totale({
   return (
     <div
       className={cn(
-        "flex items-baseline justify-between gap-4 rounded-lg px-3 py-3",
+        "flex items-center justify-between gap-4 rounded-lg px-3 py-3",
         enfasi ? "bg-primary text-primary-foreground" : "bg-muted",
       )}
     >
       <div>
-        <p className="text-sm font-medium tracking-wide uppercase">{etichetta}</p>
+        <p className="text-sm font-medium tracking-wide uppercase">
+          {etichetta}
+        </p>
         {nota ? (
-          <p className={cn("text-xs", enfasi ? "opacity-70" : "text-muted-foreground")}>{nota}</p>
+          <p
+            className={cn(
+              "text-xs",
+              enfasi ? "opacity-70" : "text-muted-foreground",
+            )}
+          >
+            {nota}
+          </p>
         ) : null}
       </div>
-      <p className="text-xl font-semibold tabular-nums sm:text-2xl">{formattaEuro(importo)}</p>
+      <p className="text-xl font-semibold tabular-nums sm:text-2xl">
+        {formattaEuro(importo)}
+      </p>
     </div>
   );
 }
@@ -139,7 +176,11 @@ export function BustaPaga({
       ruolo: "addebito",
       fonte: "inps",
     },
-    { etichetta: "Imponibile fiscale", importo: risultato.imponibileFiscale, ruolo: "subtotale" },
+    {
+      etichetta: "Imponibile fiscale",
+      importo: risultato.imponibileFiscale,
+      ruolo: "subtotale",
+    },
   ];
 
   const fiscali: Riga[] = [
@@ -168,8 +209,14 @@ export function BustaPaga({
             fonte: "cuneo",
           } satisfies Riga,
         ]),
-    { etichetta: "IRPEF netta", importo: risultato.irpefNetta, ruolo: "subtotale" },
+    {
+      etichetta: "IRPEF netta",
+      importo: risultato.irpefNetta,
+      ruolo: "subtotale",
+    },
   ];
+
+  const altro: Riga[] = [];
 
   const addizionali: Riga[] = [
     {
@@ -189,7 +236,7 @@ export function BustaPaga({
   ];
 
   if (eSommaEsente) {
-    addizionali.push({
+    altro.push({
       etichetta: "Cuneo fiscale",
       nota: "somma esente",
       importo: risultato.cuneo.importo,
@@ -202,16 +249,18 @@ export function BustaPaga({
     <Card>
       <CardHeader>
         <CardTitle>Scomposizione</CardTitle>
-        <CardDescription>
-          Anno d'imposta 2026.
-        </CardDescription>
+        <CardDescription>Anno d'imposta 2026.</CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-5">
         <Table>
           <TableBody>
             {contributive.map((riga) => (
-              <RigaVoce key={riga.etichetta} riga={riga} onApriFonte={onApriFonte} />
+              <RigaVoce
+                key={riga.etichetta}
+                riga={riga}
+                onApriFonte={onApriFonte}
+              />
             ))}
           </TableBody>
         </Table>
@@ -225,7 +274,11 @@ export function BustaPaga({
         <Table>
           <TableBody>
             {fiscali.map((riga) => (
-              <RigaVoce key={riga.etichetta} riga={riga} onApriFonte={onApriFonte} />
+              <RigaVoce
+                key={riga.etichetta}
+                riga={riga}
+                onApriFonte={onApriFonte}
+              />
             ))}
           </TableBody>
         </Table>
@@ -239,20 +292,64 @@ export function BustaPaga({
         <Table>
           <TableBody>
             {addizionali.map((riga) => (
-              <RigaVoce key={`${riga.etichetta}-${riga.nota}`} riga={riga} onApriFonte={onApriFonte} />
+              <RigaVoce
+                key={`${riga.etichetta}-${riga.nota}`}
+                riga={riga}
+                onApriFonte={onApriFonte}
+              />
             ))}
           </TableBody>
         </Table>
 
+        <div className="flex items-center gap-3">
+          <Separator className="flex-1" />
+          <Badge variant="secondary">Altro</Badge>
+          <Separator className="flex-1" />
+        </div>
+
+        { altro.length === 0 ? (
+          <p className="text-center text-sm text-muted-foreground">
+            Nessuna voce aggiuntiva.
+          </p>
+        ) : null }
+
+        <Table>
+          <TableBody>
+            {altro.map((riga) => (
+              <RigaVoce
+                key={`${riga.etichetta}-${riga.nota}`}
+                riga={riga}
+                onApriFonte={onApriFonte}
+              />
+            ))}
+          </TableBody>
+        </Table>
+        
         <Separator />
 
         <div className="space-y-2">
-          <Totale etichetta="Netto annuo" importo={risultato.nettoAnnuo} enfasi />
           <Totale
-            etichetta="Netto mensile"
+            etichetta="Netto annuo"
+            importo={risultato.nettoAnnuo}
+            enfasi
+          />
+          <Totale
+            etichetta="Netto mensile (media)"
             nota={`su ${mensilita} mensilità`}
             importo={risultato.nettoMensile}
           />
+          <Totale
+            etichetta="Netto mese ordinario"
+            nota={`su 12 mensilità, con detrazioni`}
+            importo={risultato.mensileOrdinario}
+          />
+          {mensilita > 12 && (
+            <Totale
+              etichetta="Netto mese aggiuntivo (13°/14°)"
+              nota={`senza detrazioni`}
+              importo={risultato.mensilitaAggiuntive}
+            />
+          )}
         </div>
       </CardContent>
     </Card>

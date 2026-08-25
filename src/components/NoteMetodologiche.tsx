@@ -53,7 +53,7 @@ export function NoteMetodologiche({
           <AccordionItem value="assunzioni">
             <AccordionTrigger>Assunzioni</AccordionTrigger>
             <AccordionContent>
-              <ul className="text-muted-foreground list-disc space-y-2 pl-5 text-sm">
+              <ul className="text-muted-foreground list-disc space-y-2 pl-5 text-sm pb-4">
                 {ASSUNZIONI.map((assunzione) => (
                   <li key={assunzione}>{assunzione}</li>
                 ))}
@@ -128,7 +128,7 @@ export function NoteMetodologiche({
                                 >
                                   {riferimento.abrogatoDa.riferimento.etichetta}
                                 </a>{" "}
-                                con effetto dal {riferimento.abrogatoDa.dal}: resta la norma
+                                con effetto dal {riferimento.abrogatoDa.dal.toLocaleDateString()}: resta la norma
                                 applicabile all'anno d'imposta 2026.
                               </p>
                             ) : null}

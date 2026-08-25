@@ -59,6 +59,11 @@ export const DETRAZIONE_LAVORO = {
 } as const;
 
 // Cuneo fiscale strutturale, Legge di Bilancio 2026
+/*
+* Formula per il calcolo del cuneo nella fascia 32k-40k:
+* detrazione = DETRAZIONE_PIENA * (SOGLIA_AZZERAMENTO - imponibile) / 8000
+* dove 8000 è l'ampiezza della forbice dove la detrazione decrescente è applicata (SOGLIA_AZZERAMENTO - SOGLIA_INIZIO_DECALAGE)
+*/
 export const CUNEO = {
   /** Fino a questa soglia il beneficio è una somma esente che si aggiunge al netto. */ // Cuneo fiscale strutturale, Legge di Bilancio 2026
   SOGLIA_SOMMA_ESENTE: 20_000,
