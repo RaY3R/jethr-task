@@ -230,7 +230,7 @@ describe("fonti", () => {
     expect(tuir.length).toBe(2);
 
     for (const riferimento of tuir) {
-      expect(riferimento.abrogatoDa?.dal).toBe("1° gennaio 2027");
+      expect(riferimento.abrogatoDa?.dal.toLocaleDateString()).toBe("01/01/2027");
       expect(riferimento.abrogatoDa?.riferimento.etichetta).toContain("D.Lgs. 19 giugno 2026");
     }
   });
@@ -244,6 +244,7 @@ describe("fonti", () => {
       "cuneo",
       "addRegionale",
       "addComunale",
+      "mensilitaAggiuntive"
     ];
     expect(FONTI.map((fonte) => fonte.id).sort()).toEqual([...attese].sort());
   });

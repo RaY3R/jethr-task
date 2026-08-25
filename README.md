@@ -76,10 +76,10 @@ Elencate anche in app, accanto al risultato:
 ## Eseguire in locale
 
 ```bash
-npm install
-npm run dev        # http://localhost:5173
-npm run test       # Vitest
-npm run build      # build statica in dist/
+yarn install
+yarn run dev        # http://localhost:5173
+yarn run test       # Vitest
+yarn run build      # build statica in dist/
 ```
 
 ---
